@@ -1,35 +1,65 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>SecPay — Login / Signup</title>
-  <link rel="stylesheet" href="auth.css">
+  <meta charset="UTF-8">
+  <title>SecPay — Auth</title>
+  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
 </head>
 <body>
-  <div class="wrap">
+  <div class="auth-container">
     <div class="card">
       <h1>💳 SecPay</h1>
 
-      <h2>Create account</h2>
-      <form id="signupForm">
-        <input id="fullName" placeholder="Full name" />
-        <input id="mobile" placeholder="Mobile" />
-        <input id="email" type="email" placeholder="Email" />
-        <input id="password" type="password" placeholder="Password" />
-        <button type="submit">Sign up</button>
-      </form>
+      <!-- Tab buttons -->
+      <div class="tabs">
+        <button id="loginTab" class="active">Login</button>
+        <button id="signupTab">Signup</button>
+      </div>
 
-      <div class="sep"></div>
-
-      <h2>Login</h2>
-      <form id="loginForm">
-        <input id="loginEmail" type="email" placeholder="Email" />
-        <input id="loginPassword" type="password" placeholder="Password" />
+      <!-- Forms -->
+      <form id="loginForm" class="active">
+        <input id="loginEmail" type="email" placeholder="Email" required>
+        <input id="loginPassword" type="password" placeholder="Password" required>
         <button type="submit">Login</button>
       </form>
+
+      <form id="signupForm">
+        <input id="fullName" placeholder="Full Name" required>
+        <input id="mobile" placeholder="Mobile Number" required>
+        <input id="email" type="email" placeholder="Email" required>
+        <input id="password" type="password" placeholder="Password" required>
+        <button type="submit">Signup</button>
+      </form>
+    </div>
+
+    <div class="feedback" id="feedback">
+      <span id="feedback-icon">✔️</span>
+      <p id="feedback-text">Register Successful</p>
     </div>
   </div>
 
   <script type="module" src="auth.js"></script>
+  <script>
+    // Tab switch logic
+    const loginTab = document.getElementById("loginTab");
+    const signupTab = document.getElementById("signupTab");
+    const loginForm = document.getElementById("loginForm");
+    const signupForm = document.getElementById("signupForm");
+
+    loginTab.addEventListener("click", () => {
+      loginTab.classList.add("active");
+      signupTab.classList.remove("active");
+      loginForm.classList.add("active");
+      signupForm.classList.remove("active");
+    });
+
+    signupTab.addEventListener("click", () => {
+      signupTab.classList.add("active");
+      loginTab.classList.remove("active");
+      signupForm.classList.add("active");
+      loginForm.classList.remove("active");
+    });
+  </script>
 </body>
 </html>
