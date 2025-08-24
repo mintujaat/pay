@@ -1,36 +1,402 @@
-body {
-  font-family: Arial, sans-serif;
-  text-align: center;
-  background: #f5f5f5;
-  padding: 30px;
+/* Fonts & Reset */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Roboto', sans-serif;
 }
 
-#auth-container {
-  background: white;
-  padding: 20px;
+body {
+  background: linear-gradient(120deg,#00bcd4,#4caf50);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 1rem;
+}
+
+.auth-container {
+  position: relative;
+  width: 100%;
   max-width: 400px;
-  margin: auto;
-  border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+/* Card */
+.card {
+  background: #fff;
+  padding: 2rem;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+  text-align: center;
+  transition: transform 0.3s ease;
+}
+
+.card:hover {
+  transform: translateY(-5px);
+}
+
+.card h1 {
+  margin-bottom: 1rem;
+  color: #00bcd4;
+}
+
+.tabs {
+  display: flex;
+  justify-content: space-around;
+  margin: 1rem 0;
+}
+
+.tabs button {
+  padding: 0.6rem 1rem;
+  border: none;
+  background: #f0f0f0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: 0.3s;
+  font-weight: 500;
+  flex: 1;
+  margin: 0 0.2rem;
+}
+
+.tabs button.active {
+  background: #00bcd4;
+  color: #fff;
+}
+
+/* Forms */
+form {
+  display: none;
+  flex-direction: column;
+  transition: opacity 0.3s ease;
+}
+
+form.active {
+  display: flex;
+  opacity: 1;
+}
+
+form input {
+  width: 100%;
+  padding: 0.8rem;
+  margin: 0.5rem 0;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  outline: none;
+  transition: 0.3s;
+}
+
+form input:focus {
+  border-color: #00bcd4;
+  box-shadow: 0 0 5px #00bcd4;
+}
+
+form button {
+  width: 100%;
+  padding: 0.8rem;
+  margin-top: 1rem;
+  background: #00bcd4;
+  color: #fff;
+  font-weight: 500;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+form button:hover {
+  background: #0097a7;
+}
+
+/* Feedback popup */
+.feedback {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  background: #fff;
+  padding: 2rem 2.5rem;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  text-align: center;
+  z-index: 100;
+  transition: transform 0.4s ease;
+}
+
+.feedback.show {
+  transform: translate(-50%, -50%) scale(1);
+}
+
+#feedback-icon {
+  font-size: 3rem;
+  display: block;
+  margin-bottom: 1rem;
+}
+
+#feedback-text {
+  font-size: 1.2rem;
+  font-weight: 500;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 480px) {
+  .card {
+    padding: 2rem;         /* thoda aur padding */
+    border-radius: 14px;
+    width: 95%;            /* almost full width */
+  }
+
+  .tabs button {
+    font-size: 1rem;       /* thoda bada text */
+    padding: 0.6rem;
+  }
+
+  form input, form button {
+    padding: 0.9rem;       /* thoda bada input & button */
+    font-size: 1rem;
+  }
+
+  #feedback-text {
+    font-size: 1.1rem;     /* feedback text thoda bada */
+  }
+}
+/* Reset & Fonts */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Roboto', sans-serif;
+}
+
+body {
+  background: linear-gradient(120deg,#00bcd4,#4caf50);
+  min-height: 100vh;
+  padding: 1rem;
+}
+
+/* Dashboard wrap */
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+/* Cards */
+.card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+  transition: transform 0.3s ease;
+}
+
+.card:hover {
+  transform: translateY(-3px);
+}
+
+.card h1, .card h2 {
+  color: #00bcd4;
+  margin-bottom: 1rem;
+}
+
+.card p {
+  margin: 0.3rem 0;
+}
+
+.top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.balance {
+  font-size: 1.8rem;
+  font-weight: bold;
+  color: #4caf50;
+  margin-top: 0.5rem;
 }
 
 input {
-  display: block;
-  width: 90%;
-  margin: 10px auto;
-  padding: 10px;
+  width: 100%;
+  padding: 0.8rem;
+  margin: 0.5rem 0;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  outline: none;
+  transition: 0.3s;
+}
+
+input:focus {
+  border-color: #00bcd4;
+  box-shadow: 0 0 5px #00bcd4;
 }
 
 button {
-  padding: 10px 20px;
-  margin: 10px;
-  background: #007bff;
-  color: white;
+  width: 100%;
+  padding: 0.9rem;
+  margin-top: 0.8rem;
+  background: #00bcd4;
+  color: #fff;
+  font-weight: 500;
   border: none;
-  border-radius: 5px;
+  border-radius: 8px;
   cursor: pointer;
+  transition: 0.3s;
 }
 
 button:hover {
-  background: #0056b3;
+  background: #0097a7;
+}
+
+/* Transaction list */
+#txnList {
+  list-style: none;
+  max-height: 200px;
+  overflow-y: auto;
+  padding-left: 0;
+}
+
+#txnList li {
+  background: #f0f0f0;
+  margin: 0.3rem 0;
+  padding: 0.5rem;
+  border-radius: 8px;
+}
+
+/* Feedback / Processing popup */
+#popup {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  background: #fff;
+  padding: 2rem 2.5rem;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  text-align: center;
+  z-index: 100;
+  transition: transform 0.4s ease;
+}
+
+#popup.show {
+  transform: translate(-50%, -50%) scale(1);
+}
+
+#popup-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+#popup-text {
+  font-size: 1.2rem;
+  font-weight: 500;
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .wrap {
+    padding: 0 0.5rem;
+  }
+  .balance {
+    font-size: 1.5rem;
+  }
+  input, button {
+    font-size: 1rem;
+    padding: 0.8rem;
+  }
+  #popup-text {
+    font-size: 1rem;
+  }
+}
+/* Highlight user info at top of dashboard */
+.top div {
+  background: #e0f7fa;        /* light blue background */
+  padding: 1rem;
+  border-radius: 12px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+  text-align: left;
+  margin-bottom: 1rem;
+}
+
+.top div h1 {
+  margin-bottom: 0.5rem;
+  font-size: 1.5rem;
+}
+
+.top div p {
+  margin: 0.3rem 0;
+  font-size: 1rem;
+}
+#userUid {
+  font-weight: bold;
+  color: #00796b;
+  background: #b2dfdb;
+  padding: 0.2rem 0.4rem;
+  border-radius: 6px;
+  margin-left: 0.3rem;
+
+  display: inline-block;
+  max-width: 180px;     /* ek fixed width */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+  cursor: pointer;
+}
+#userUid {
+  display: block;        /* pura line lega */
+  font-weight: bold;
+  color: #00796b;
+  background: #e0f2f1;
+  padding: 6px 10px;
+  border-radius: 8px;
+  margin: 6px 0;
+  word-break: break-all; /* long UID ko wrap karega */
+  font-size: 14px;
+}
+
+
+#copyUid {
+  padding: 0.2rem 0.5rem;
+  margin-left: 0.5rem;
+  font-size: 0.9rem;
+  border: none;
+  border-radius: 6px;
+  background: #00bcd4;
+  color: #fff;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+#copyUid:hover {
+  background: #0097a7;
+}
+#userUid {
+  display: inline-block;
+  max-width: 160px;    /* box width fix */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: #e0f2f1;
+  cursor: pointer;
+}
+
+#userUid:hover::after {
+  content: attr(data-full);   /* pura UID tooltip me dikh jayega */
+  position: absolute;
+  background: #333;
+  color: #fff;
+  padding: 6px 10px;
+  border-radius: 6px;
+  white-space: normal;
+  max-width: 300px;
+  top: 100%;
+  left: 0;
+  transform: translateY(5px);
+  z-index: 999;
 }
