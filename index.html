@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>SecPay — Login / Signup</title>
+  <link rel="stylesheet" href="auth.css">
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>💳 SecPay</h1>
+
+      <h2>Create account</h2>
+      <form id="signupForm">
+        <input id="fullName" placeholder="Full name" />
+        <input id="mobile" placeholder="Mobile" />
+        <input id="email" type="email" placeholder="Email" />
+        <input id="password" type="password" placeholder="Password" />
+        <button type="submit">Sign up</button>
+      </form>
+
+      <div class="sep"></div>
+
+      <h2>Login</h2>
+      <form id="loginForm">
+        <input id="loginEmail" type="email" placeholder="Email" />
+        <input id="loginPassword" type="password" placeholder="Password" />
+        <button type="submit">Login</button>
+      </form>
+    </div>
+  </div>
+
+  <script type="module" src="auth.js"></script>
+</body>
+</html>
