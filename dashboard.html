@@ -181,6 +181,63 @@
       100% { transform: translate(-50%, -50%) rotate(360deg); }
     }
 
+    /* Payment confirmation modal */
+    #confirmBox {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      backdrop-filter: blur(4px);
+    }
+    #confirmBox.active { display: flex; }
+
+    .confirm-card {
+      background: var(--card);
+      padding: 20px;
+      border-radius: 16px;
+      max-width: 300px;
+      width: 90%;
+      text-align: center;
+      box-shadow: 0 5px 25px rgba(0,0,0,0.1);
+      animation: pop 0.25s ease;
+    }
+    .confirm-card h3 {
+      color: var(--accent);
+      margin-bottom: 10px;
+    }
+    .confirm-card p {
+      font-size: 0.95rem;
+      margin-bottom: 20px;
+    }
+    .actions {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .actions button {
+      flex: 1;
+      padding: 10px;
+      border-radius: 10px;
+      border: none;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .actions button.cancel {
+      background: #ccc;
+      color: #000;
+    }
+    .actions button:not(.cancel) {
+      background: var(--accent);
+      color: #fff;
+    }
+    @keyframes pop {
+      from { transform: scale(0.8); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+
     @media (max-width: 480px) {
       body { padding: 20px; }
       .balance { font-size: 1.5rem; }
@@ -233,6 +290,18 @@
     </div>
   </div>
 
+  <!-- Payment Confirmation Popup -->
+  <div id="confirmBox">
+    <div class="confirm-card">
+      <h3>💸 Confirm Payment</h3>
+      <p>Are you sure you want to send <b id="confirmAmount">₹0</b> to <b id="confirmName">—</b>?</p>
+      <div class="actions">
+        <button id="confirmYes">Yes, Send</button>
+        <button id="confirmNo" class="cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <div id="toast"></div>
 
   <script type="module" src="dashboard.js"></script>
@@ -260,14 +329,12 @@
       });
     }
 
-    // Observe UID to generate QR code
     const observer = new MutationObserver(() => {
       const uid = document.getElementById("userUid").textContent.trim();
       if (uid && uid !== "—") generateQRCode(uid);
     });
     observer.observe(document.getElementById("userUid"), { childList: true });
 
-    // Scanner controls
     const scanBtn = document.getElementById("scanQrBtn");
     const scanArea = document.getElementById("scanArea");
     const closeScan = document.getElementById("closeScan");
@@ -297,7 +364,6 @@
       scanArea.style.display = "none";
     };
 
-    // Fetch receiver name in real time
     receiverInput.addEventListener("input", () => {
       const uid = receiverInput.value.trim();
       fetchReceiverName(uid);
@@ -316,14 +382,45 @@
       }
     }
 
-    // Animate send button while processing
-    sendBtn.addEventListener("click", async () => {
+    // Confirm modal elements
+    const confirmBox = document.getElementById("confirmBox");
+    const confirmAmount = document.getElementById("confirmAmount");
+    const confirmName = document.getElementById("confirmName");
+    const confirmYes = document.getElementById("confirmYes");
+    const confirmNo = document.getElementById("confirmNo");
+
+    sendBtn.addEventListener("click", () => {
+      const amount = document.getElementById("amount").value.trim();
+      const receiver = receiverNameDiv.textContent.trim();
+
+      if (!amount || !receiver || receiver === "—" || receiver === "❌ Not found") {
+        alert("Enter valid receiver and amount first.");
+        return;
+      }
+
+      confirmAmount.textContent = `₹${amount}`;
+      confirmName.textContent = receiver;
+      confirmBox.classList.add("active");
+    });
+
+    confirmYes.onclick = async () => {
+      confirmBox.classList.remove("active");
       sendBtn.classList.add("loading");
       try {
-        await new Promise(r => setTimeout(r, 2000)); // simulate delay
-      } catch (e) {}
+        await new Promise(r => setTimeout(r, 2000));
+        const t = document.getElementById("toast");
+        t.textContent = "✅ Payment Sent Successfully";
+        t.classList.add("show");
+        setTimeout(()=>t.classList.remove("show"), 2500);
+      } catch (e) {
+        alert("Payment failed: " + e.message);
+      }
       sendBtn.classList.remove("loading");
-    });
+    };
+
+    confirmNo.onclick = () => {
+      confirmBox.classList.remove("active");
+    };
   </script>
 </body>
 </html>
