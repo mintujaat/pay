@@ -3,25 +3,178 @@
 <head>
   <meta charset="UTF-8">
   <title>SecPay — Auth</title>
-  <link rel="stylesheet" href="style.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --accent: #00bfff;
+      --bg: #f5f6fa;
+      --card: #ffffff;
+      --text: #333;
+      --muted: #777;
+      --success: #00c851;
+      --danger: #ff4444;
+    }
+
+    * { margin:0; padding:0; box-sizing:border-box; font-family: 'Roboto', sans-serif; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .auth-container {
+      width: 100%;
+      max-width: 400px;
+      padding: 15px;
+    }
+
+    .card {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 30px 20px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      position: relative;
+    }
+
+    h1 {
+      color: var(--accent);
+      text-align: center;
+      margin-bottom: 5px;
+    }
+
+    p.app-desc {
+      text-align: center;
+      font-size: 0.95rem;
+      color: var(--muted);
+      margin-bottom: 15px;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+
+    .tabs button {
+      flex: 1;
+      padding: 10px;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      background: rgba(0,0,0,0.05);
+      color: var(--text);
+      font-weight: 600;
+      transition: 0.2s;
+    }
+
+    .tabs button.active { background: var(--accent); color: white; }
+
+    form {
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    form.active { display: flex; }
+
+    input {
+      width: 100%;
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px solid #ccc;
+      outline: none;
+      font-size: 1rem;
+      color: var(--text);
+      background: #fdfdfd;
+    }
+
+    input:focus { border-color: var(--accent); }
+
+    button[type="submit"] {
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 12px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 600;
+      position: relative;
+      overflow: hidden;
+      transition: 0.2s;
+    }
+
+    button[type="submit"]:hover { background: #0099cc; }
+
+    /* Loading spinner */
+    button.loading::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 20px;
+      height: 20px;
+      border: 2px solid white;
+      border-top: 2px solid transparent;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      animation: spin 1s linear infinite;
+    }
+
+    button.loading { pointer-events: none; opacity: 0.7; }
+
+    @keyframes spin {
+      0% { transform: translate(-50%, -50%) rotate(0deg); }
+      100% { transform: translate(-50%, -50%) rotate(360deg); }
+    }
+
+    .feedback {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.85);
+      color: var(--success);
+      padding: 12px 20px;
+      border-radius: 8px;
+      display: none;
+      align-items: center;
+      gap: 10px;
+      font-weight: 500;
+    }
+
+    .feedback.show { display: flex; }
+
+    @media(max-width: 450px) {
+      .card { padding: 25px 15px; }
+      input, button { font-size: 0.95rem; padding: 10px; }
+      p.app-desc { font-size: 0.85rem; }
+    }
+  </style>
 </head>
 <body>
   <div class="auth-container">
     <div class="card">
       <h1>💳 SecPay</h1>
+      <p class="app-desc">Fast, secure, mobile-friendly payments in one place.</p>
 
-      <!-- Tab buttons -->
       <div class="tabs">
         <button id="loginTab" class="active">Login</button>
         <button id="signupTab">Signup</button>
       </div>
 
-      <!-- Forms -->
       <form id="loginForm" class="active">
         <input id="loginEmail" type="email" placeholder="Email" required>
         <input id="loginPassword" type="password" placeholder="Password" required>
-        <button type="submit">Login</button>
+        <button type="submit" id="loginBtn">Login</button>
       </form>
 
       <form id="signupForm">
@@ -29,22 +182,29 @@
         <input id="mobile" placeholder="Mobile Number" required>
         <input id="email" type="email" placeholder="Email" required>
         <input id="password" type="password" placeholder="Password" required>
-        <button type="submit">Signup</button>
+        <button type="submit" id="signupBtn">Signup</button>
       </form>
     </div>
 
     <div class="feedback" id="feedback">
       <span id="feedback-icon">✔️</span>
-      <p id="feedback-text">Register Successful</p>
+      <p id="feedback-text">Operation Successful</p>
     </div>
   </div>
 
   <script type="module" src="auth.js"></script>
   <script>
+    // Login button loading effect
+    const loginForm = document.getElementById("loginForm");
+    const loginBtn = document.getElementById("loginBtn");
+
+    loginForm.addEventListener("submit", () => {
+      loginBtn.classList.add("loading");
+    });
+
     // Tab switch logic
     const loginTab = document.getElementById("loginTab");
     const signupTab = document.getElementById("signupTab");
-    const loginForm = document.getElementById("loginForm");
     const signupForm = document.getElementById("signupForm");
 
     loginTab.addEventListener("click", () => {
