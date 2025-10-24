@@ -56,9 +56,16 @@
       margin-bottom: 10px;
     }
 
-    h1 { color: var(--accent); font-size: 1.5rem; }
+    h1 {
+      color: var(--accent);
+      font-size: 1.5rem;
+    }
 
-    .balance { font-size: 1.8rem; font-weight: bold; color: var(--success); }
+    .balance {
+      font-size: 1.8rem;
+      font-weight: bold;
+      color: var(--success);
+    }
 
     code {
       background: rgba(0,0,0,0.05);
@@ -94,11 +101,22 @@
 
     input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0,123,255,0.1); }
 
-    #receiverName { color: var(--accent); font-size: 0.9rem; margin-bottom: 8px; }
+    #receiverName {
+      color: var(--accent);
+      font-size: 0.9rem;
+      margin-bottom: 8px;
+    }
 
-    #qrcode { margin: 10px auto 15px; display: flex; justify-content: center; }
+    #qrcode {
+      margin: 10px auto 15px;
+      display: flex;
+      justify-content: center;
+    }
 
-    #scanArea { display: none; margin-top: 10px; }
+    #scanArea {
+      display: none;
+      margin-top: 10px;
+    }
 
     #reader {
       width: 100%;
@@ -107,7 +125,11 @@
       border: 1px solid #ccc;
     }
 
-    ul { list-style: none; padding: 0; margin: 0; }
+    ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
 
     li.item {
       display: flex;
@@ -116,7 +138,9 @@
       border-bottom: 1px solid rgba(0,0,0,0.1);
     }
 
-    li .amt { font-weight: bold; }
+    li .amt {
+      font-weight: bold;
+    }
     li .amt.debit { color: var(--danger); }
     li .amt.credit { color: var(--success); }
     li .muted { color: var(--muted); font-size: 0.8rem; }
@@ -136,7 +160,7 @@
     }
     #toast.show { opacity: 1; }
 
-    /* Loading animation */
+    /* Button loading animation */
     button.loading::after {
       content: "";
       position: absolute;
@@ -166,6 +190,7 @@
 
 <body>
   <div class="wrap">
+    <!-- PROFILE CARD -->
     <div class="card">
       <div class="top">
         <div>
@@ -182,6 +207,7 @@
       <button id="logoutBtn" style="width:100%;margin-top:10px;">Logout</button>
     </div>
 
+    <!-- SEND MONEY CARD -->
     <div class="card">
       <h2>Send Money (by UID)</h2>
       <input id="receiverUid" placeholder="Receiver UID">
@@ -198,6 +224,7 @@
       </div>
     </div>
 
+    <!-- HISTORY CARD -->
     <div class="card">
       <h2>Transaction History</h2>
       <ul id="txnList">
@@ -209,5 +236,94 @@
   <div id="toast"></div>
 
   <script type="module" src="dashboard.js"></script>
+
+  <!-- QR + Receiver Name + Send Animation Integration -->
+  <script type="module">
+    import { db } from "./firebase.js";
+    import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    let qrGen, qrScanner;
+    const receiverInput = document.getElementById("receiverUid");
+    const receiverNameDiv = document.getElementById("receiverName");
+    const sendBtn = document.getElementById("sendBtn");
+
+    function generateQRCode(uid) {
+      const qrDiv = document.getElementById("qrcode");
+      qrDiv.innerHTML = "";
+      if (!uid) return;
+      qrGen = new QRCode(qrDiv, {
+        text: uid,
+        width: 140,
+        height: 140,
+        colorDark: "#007bff",
+        colorLight: "#ffffff"
+      });
+    }
+
+    // Observe UID to generate QR code
+    const observer = new MutationObserver(() => {
+      const uid = document.getElementById("userUid").textContent.trim();
+      if (uid && uid !== "—") generateQRCode(uid);
+    });
+    observer.observe(document.getElementById("userUid"), { childList: true });
+
+    // Scanner controls
+    const scanBtn = document.getElementById("scanQrBtn");
+    const scanArea = document.getElementById("scanArea");
+    const closeScan = document.getElementById("closeScan");
+
+    scanBtn.onclick = () => {
+      scanArea.style.display = "block";
+      qrScanner = new Html5Qrcode("reader");
+      qrScanner.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: 200 },
+        (decodedText) => {
+          receiverInput.value = decodedText;
+          qrScanner.stop();
+          scanArea.style.display = "none";
+          const t = document.getElementById("toast");
+          t.textContent = "UID Scanned ✅";
+          t.classList.add("show");
+          setTimeout(()=>t.classList.remove("show"), 2000);
+          fetchReceiverName(decodedText);
+        },
+        (err) => {}
+      );
+    };
+
+    closeScan.onclick = () => {
+      if (qrScanner) qrScanner.stop();
+      scanArea.style.display = "none";
+    };
+
+    // Fetch receiver name in real time
+    receiverInput.addEventListener("input", () => {
+      const uid = receiverInput.value.trim();
+      fetchReceiverName(uid);
+    });
+
+    async function fetchReceiverName(uid) {
+      if (!uid) {
+        receiverNameDiv.textContent = "—";
+        return;
+      }
+      try {
+        const snap = await getDoc(doc(db, "users", uid));
+        receiverNameDiv.textContent = snap.exists() ? snap.data().fullName : "❌ Not found";
+      } catch (e) {
+        receiverNameDiv.textContent = "Error fetching name";
+      }
+    }
+
+    // Animate send button while processing
+    sendBtn.addEventListener("click", async () => {
+      sendBtn.classList.add("loading");
+      try {
+        await new Promise(r => setTimeout(r, 2000)); // simulate delay
+      } catch (e) {}
+      sendBtn.classList.remove("loading");
+    });
+  </script>
 </body>
 </html>
