@@ -4,6 +4,119 @@
   <meta charset="UTF-8" />
   <title>SecPay — Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script type="module" src="https://unpkg.com/html5-qrcode"></script>
+  <style>
+    body {
+      font-family: "Segoe UI", sans-serif;
+      background: #f8f9fa;
+      margin: 0;
+      padding: 20px;
+      color: #222;
+    }
+    .wrap { max-width: 600px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .top { display: flex; justify-content: space-between; align-items: center; }
+    .balance { font-size: 1.8em; font-weight: bold; color: #0d6efd; }
+    input {
+      width: 100%;
+      margin: 8px 0;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-size: 1em;
+    }
+    button {
+      background: #0d6efd;
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1em;
+    }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    ul { list-style: none; padding: 0; margin: 0; }
+    .item { border-bottom: 1px solid #eee; padding: 8px 0; }
+    .amt { font-weight: bold; }
+    .debit { color: red; }
+    .credit { color: green; }
+    .muted { font-size: 0.8em; color: gray; display: block; }
+    #toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #222;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 20px;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    #toast.show { opacity: 1; }
+    #qrBox {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      text-align: center;
+    }
+    canvas { margin-top: 10px; }
+    #qrScanner { display: none; width: 100%; }
+    #sendingOverlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(255,255,255,0.9);
+      justify-content: center; align-items: center;
+      font-size: 1.5em;
+      color: #0d6efd;
+      z-index: 1000;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="top">
+        <div>
+          <h1>💳 SecPay</h1>
+          <p>Welcome, <b id="userName">—</b></p>
+          <p>Your UID: <code id="userUid">—</code> <button id="copyUid">Copy</button></p>
+        </div>
+        <div class="balance">₹<span id="balance">0</span></div>
+      </div>
+      <div id="qrBox">
+        <canvas id="qrCanvas"></canvas>
+        <button id="scanBtn">📷 Scan UID</button>
+        <div id="qrScanner"></div>
+      </div>
+      <button id="logoutBtn">Logout</button>
+    </div>
+
+    <div class="card">
+      <h2>Send Money</h2>
+      <input id="receiverUid" placeholder="Receiver UID">
+      <div id="receiverName" style="margin-bottom:10px; color:gray;">—</div>
+      <input id="amount" type="number" placeholder="Amount (₹)">
+      <button id="sendBtn">Send</button>
+    </div>
+
+    <div class="card">
+      <h2>History</h2>
+      <ul id="txnList"></ul>
+    </div>
+  </div>
+
+  <div id="sendingOverlay">💸 Sending...</div>
+  <div id="toast"></div>
+
   <script type="module">
     import { auth, db } from "./firebase.js";
     import {
@@ -11,45 +124,43 @@
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
     import {
       doc, getDoc, onSnapshot, runTransaction, collection, query, where,
-      onSnapshot as listen, orderBy, serverTimestamp, doc as docRef
+      orderBy, serverTimestamp, onSnapshot as listen
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-    import QRCode from "https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js";
-    import QrScanner from "https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner.min.js";
+    import QrCreator from "https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js";
 
-    let meUid = null, meRef = null, sending = false;
+    let meUid = null;
+    let meRef = null;
 
-    function toast(msg) {
+    const toast = (msg) => {
       const t = document.getElementById("toast");
       t.textContent = msg;
       t.classList.add("show");
       setTimeout(() => t.classList.remove("show"), 2000);
-    }
+    };
 
-    function setLoading(state, msg = "Processing...") {
-      const overlay = document.getElementById("loadingOverlay");
-      document.getElementById("loadingMsg").textContent = msg;
-      overlay.style.display = state ? "flex" : "none";
-    }
-
-    // --- Auth ---
+    // Auth and profile
     onAuthStateChanged(auth, async (user) => {
-      if (!user) { window.location.href = "index.html"; return; }
-
+      if (!user) return (window.location.href = "index.html");
       meUid = user.uid;
       meRef = doc(db, "users", meUid);
 
-      // Profile listener
+      // Realtime profile
       onSnapshot(meRef, (snap) => {
         if (!snap.exists()) return;
         const u = snap.data();
         document.getElementById("userName").textContent = u.fullName ?? "User";
-        document.getElementById("balance").textContent = (u.balance ?? 0);
+        document.getElementById("balance").textContent = u.balance ?? 0;
         document.getElementById("userUid").textContent = meUid;
-        generateQR(meUid);
+
+        // Generate QR for UID
+        const qr = new QRious({
+          element: document.getElementById("qrCanvas"),
+          value: meUid,
+          size: 150,
+        });
       });
 
-      // Copy UID
       document.getElementById("copyUid").onclick = () => {
         navigator.clipboard.writeText(meUid);
         toast("UID copied ✅");
@@ -64,75 +175,30 @@
       window.location.href = "index.html";
     };
 
-    // --- QR Code Generation ---
-    function generateQR(uid) {
-      const canvas = document.getElementById("userQr");
-      QRCode.toCanvas(canvas, uid, { width: 120 }, (err) => {
-        if (err) console.error(err);
-      });
-    }
-
-    // --- QR Scanner ---
-    const qrBtn = document.getElementById("scanBtn");
-    qrBtn.onclick = async () => {
-      const vid = document.getElementById("qrVideo");
-      document.getElementById("qrScanner").style.display = "block";
-      const scanner = new QrScanner(vid, result => {
-        document.getElementById("receiverUid").value = result.data;
-        document.getElementById("qrScanner").style.display = "none";
-        scanner.stop();
-        receiverUidInput.dispatchEvent(new Event("input"));
-      });
-      await scanner.start();
-    };
-
-    // --- Receiver name auto fetch ---
-    const receiverUidInput = document.getElementById("receiverUid");
-    const receiverNameLabel = document.createElement("div");
-    receiverNameLabel.className = "receiverName";
-    receiverUidInput.insertAdjacentElement("afterend", receiverNameLabel);
-
-    receiverUidInput.addEventListener("input", async () => {
-      const uid = receiverUidInput.value.trim();
-      receiverNameLabel.textContent = "";
-      if (!uid || uid.length < 6) return;
-      try {
-        const snap = await getDoc(doc(db, "users", uid));
-        if (snap.exists()) {
-          receiverNameLabel.textContent = `👤 ${snap.data().fullName || "Unknown User"}`;
-        } else {
-          receiverNameLabel.textContent = "❌ User not found";
-        }
-      } catch {
-        receiverNameLabel.textContent = "⚠️ Error fetching user";
+    // Auto fetch receiver name
+    document.getElementById("receiverUid").addEventListener("input", async (e) => {
+      const uid = e.target.value.trim();
+      if (uid.length < 6) {
+        document.getElementById("receiverName").textContent = "—";
+        return;
       }
+      const rxSnap = await getDoc(doc(db, "users", uid));
+      document.getElementById("receiverName").textContent = rxSnap.exists() ? rxSnap.data().fullName : "❌ Not found";
     });
 
-    // --- Send money ---
-    document.getElementById("sendBtn").addEventListener("click", async () => {
-      if (sending) return;
-      sending = true;
-      setLoading(true, "Sending payment...");
-
+    // Send money
+    document.getElementById("sendBtn").onclick = async () => {
       const receiverUid = document.getElementById("receiverUid").value.trim();
       const amount = parseFloat(document.getElementById("amount").value);
+      if (!receiverUid || !amount || amount <= 0) return toast("Enter valid details");
+      if (receiverUid === meUid) return toast("Can't send to yourself");
 
-      if (!receiverUid || !amount || amount <= 0) {
-        setLoading(false);
-        sending = false;
-        return toast("Enter valid UID & amount");
-      }
-      if (receiverUid === meUid) {
-        setLoading(false);
-        sending = false;
-        return toast("You cannot send to yourself");
-      }
-
+      const overlay = document.getElementById("sendingOverlay");
+      overlay.style.display = "flex";
       const rxRef = doc(db, "users", receiverUid);
       const rxSnap = await getDoc(rxRef);
       if (!rxSnap.exists()) {
-        setLoading(false);
-        sending = false;
+        overlay.style.display = "none";
         return toast("Receiver not found");
       }
 
@@ -140,8 +206,6 @@
         await runTransaction(db, async (tx) => {
           const meDoc = await tx.get(meRef);
           const rxDoc = await tx.get(rxRef);
-          if (!meDoc.exists() || !rxDoc.exists()) throw new Error("User docs missing");
-
           const meBal = Number(meDoc.data().balance || 0);
           const rxBal = Number(rxDoc.data().balance || 0);
           if (meBal < amount) throw new Error("Insufficient balance");
@@ -149,31 +213,28 @@
           tx.update(meRef, { balance: meBal - amount });
           tx.update(rxRef, { balance: rxBal + amount });
 
-          const txnRef = docRef(collection(db, "transactions"));
+          const txnRef = doc(collection(db, "transactions"));
           tx.set(txnRef, {
             senderId: meUid,
             senderName: meDoc.data().fullName,
             receiverId: receiverUid,
             receiverName: rxDoc.data().fullName,
-            amount: Number(amount),
+            amount,
             createdAt: serverTimestamp()
           });
         });
-
+        toast("✅ Payment sent");
         document.getElementById("receiverUid").value = "";
         document.getElementById("amount").value = "";
-        receiverNameLabel.textContent = "";
-        setLoading(false);
-        sending = false;
-        toast("✅ Payment sent successfully");
+        document.getElementById("receiverName").textContent = "—";
       } catch (e) {
-        setLoading(false);
-        sending = false;
-        toast(e.message || "Payment failed");
+        toast(e.message);
+      } finally {
+        overlay.style.display = "none";
       }
-    });
+    };
 
-    // --- Transaction history ---
+    // History listener
     function startHistoryListeners() {
       const list = document.getElementById("txnList");
       const items = new Map();
@@ -184,110 +245,58 @@
           const tb = b.createdAt?.toMillis?.() ?? 0;
           return tb - ta;
         });
-        list.innerHTML = "";
-        if (!arr.length) return list.innerHTML = "<li>No transactions yet.</li>";
+        list.innerHTML = arr.length ? "" : "<li class='item'>No transactions yet.</li>";
         for (const t of arr) {
-          const when = t.createdAt?.toDate ? t.createdAt.toDate().toLocaleString() : "";
-          const isSent = t.senderId === meUid;
           const li = document.createElement("li");
+          li.className = "item";
+          const when = t.createdAt?.toDate?.().toLocaleString?.() ?? "";
+          const isSent = t.senderId === meUid;
           li.innerHTML = isSent
-            ? `<span class="amt debit">− ₹${t.amount}</span>
-               <span>To <b>${t.receiverName}</b> (${t.receiverId})</span>
-               <span class="muted">${when}</span>`
-            : `<span class="amt credit">+ ₹${t.amount}</span>
-               <span>From <b>${t.senderName}</b> (${t.senderId})</span>
-               <span class="muted">${when}</span>`;
+            ? `<span class='amt debit'>− ₹${t.amount}</span> to <b>${t.receiverName}</b> <span class='muted'>${when}</span>`
+            : `<span class='amt credit'>+ ₹${t.amount}</span> from <b>${t.senderName}</b> <span class='muted'>${when}</span>`;
           list.appendChild(li);
         }
       }
 
-      const qSent = query(collection(db, "transactions"),
-        where("senderId", "==", meUid), orderBy("createdAt", "desc"));
+      const qSent = query(collection(db, "transactions"), where("senderId", "==", meUid));
+      const qRecv = query(collection(db, "transactions"), where("receiverId", "==", meUid));
+
       listen(qSent, (snap) => {
-        snap.docChanges().forEach(ch => {
-          if (ch.type === "removed") items.delete(ch.doc.id);
-          else items.set(ch.doc.id, ch.doc.data());
-        });
+        snap.docChanges().forEach(ch => items.set(ch.doc.id, ch.doc.data()));
         render();
       });
-
-      const qRecv = query(collection(db, "transactions"),
-        where("receiverId", "==", meUid), orderBy("createdAt", "desc"));
       listen(qRecv, (snap) => {
-        snap.docChanges().forEach(ch => {
-          if (ch.type === "removed") items.delete(ch.doc.id);
-          else items.set(ch.doc.id, ch.doc.data());
-        });
+        snap.docChanges().forEach(ch => items.set(ch.doc.id, ch.doc.data()));
         render();
       });
     }
+
+    // QR Scanner
+    let scannerOpen = false;
+    document.getElementById("scanBtn").onclick = () => {
+      const qrDiv = document.getElementById("qrScanner");
+      if (scannerOpen) {
+        qrDiv.innerHTML = "";
+        qrDiv.style.display = "none";
+        scannerOpen = false;
+        return;
+      }
+      qrDiv.style.display = "block";
+      const html5QrCode = new Html5Qrcode("qrScanner");
+      html5QrCode.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: 250 },
+        (decodedText) => {
+          document.getElementById("receiverUid").value = decodedText;
+          html5QrCode.stop();
+          qrDiv.style.display = "none";
+          scannerOpen = false;
+          toast("UID Scanned ✅");
+        },
+        (err) => {}
+      );
+      scannerOpen = true;
+    };
   </script>
-
-  <style>
-    * { box-sizing: border-box; }
-    body { font-family: 'Segoe UI', sans-serif; background: #f8f9fb; color: #222; margin: 0; padding: 20px; }
-    .wrap { max-width: 600px; margin: auto; display: flex; flex-direction: column; gap: 20px; }
-    .card { background: #fff; padding: 20px; border-radius: 14px; box-shadow: 0 1px 5px rgba(0,0,0,0.08); }
-    .top { display: flex; justify-content: space-between; align-items: center; }
-    .balance { font-size: 1.4em; font-weight: bold; }
-    button { padding: 8px 14px; border: none; background: #007bff; color: #fff; border-radius: 6px; cursor: pointer; }
-    button:hover { background: #0065d1; }
-    input { width: 100%; padding: 8px; margin: 6px 0; border: 1px solid #ccc; border-radius: 6px; }
-    ul { list-style: none; padding: 0; margin: 0; }
-    li { border-bottom: 1px solid #eee; padding: 8px 0; }
-    .amt { font-weight: bold; display: inline-block; width: 90px; }
-    .credit { color: green; }
-    .debit { color: red; }
-    .muted { display: block; font-size: 0.8em; color: #777; }
-    #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: #fff;
-      padding: 10px 20px; border-radius: 20px; opacity: 0; transition: opacity .3s; }
-    #toast.show { opacity: 1; }
-
-    #loadingOverlay { display:none; position:fixed; inset:0; background:rgba(255,255,255,0.9);
-      justify-content:center; align-items:center; z-index:9999; flex-direction:column; }
-    .spinner { width:48px; height:48px; border:4px solid #ccc; border-top-color:#007bff;
-      border-radius:50%; animation:spin 1s linear infinite; margin-bottom:10px; }
-    @keyframes spin { to { transform:rotate(360deg);} }
-
-    .receiverName { font-size:14px; margin-top:4px; color:#555; }
-    #userQr { margin-top:10px; display:block; }
-    #qrScanner { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:10000; }
-    #qrScanner video { width:100%; height:100%; object-fit:cover; }
-  </style>
-</head>
-<body>
-  <div id="loadingOverlay"><div class="spinner"></div><p id="loadingMsg"></p></div>
-  <div id="toast"></div>
-  <div id="qrScanner"><video id="qrVideo"></video></div>
-
-  <div class="wrap">
-    <div class="card">
-      <div class="top">
-        <div>
-          <h1>💳 SecPay</h1>
-          <p>Welcome, <b id="userName">—</b></p>
-          <p>Your UID: <code id="userUid">—</code>
-            <button id="copyUid">Copy</button>
-          </p>
-        </div>
-        <div class="balance">₹<span id="balance">0</span></div>
-      </div>
-      <canvas id="userQr"></canvas>
-      <button id="logoutBtn">Logout</button>
-    </div>
-
-    <div class="card">
-      <h2>Send Money (by UID)</h2>
-      <input id="receiverUid" placeholder="Receiver UID">
-      <button id="scanBtn">📷 Scan QR</button>
-      <input id="amount" type="number" placeholder="Amount (₹)">
-      <button id="sendBtn">Send</button>
-    </div>
-
-    <div class="card">
-      <h2>History</h2>
-      <ul id="txnList"></ul>
-    </div>
-  </div>
 </body>
 </html>
