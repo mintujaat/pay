@@ -87,13 +87,19 @@
     input {
       width: 100%;
       padding: 10px;
-      margin-bottom: 10px;
+      margin-bottom: 5px;
       border-radius: 10px;
       border: none;
       outline: none;
       font-size: 1rem;
       background: rgba(255,255,255,0.08);
       color: var(--text);
+    }
+
+    #receiverName {
+      color: #00bfff;
+      font-size: 0.9rem;
+      margin-bottom: 8px;
     }
 
     #qrcode {
@@ -178,6 +184,7 @@
     <div class="card">
       <h2>Send Money (by UID)</h2>
       <input id="receiverUid" placeholder="Receiver UID">
+      <div id="receiverName">—</div>
       <input id="amount" type="number" placeholder="Amount (₹)">
       <div style="display:flex;gap:10px;">
         <button id="sendBtn" style="flex:1;">Send</button>
@@ -203,8 +210,11 @@
 
   <script type="module" src="dashboard.js"></script>
 
-  <!-- QR Integration -->
-  <script>
+  <!-- QR + Receiver Name Integration -->
+  <script type="module">
+    import { db } from "./firebase.js";
+    import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
     let qrGen, qrScanner;
 
     function generateQRCode(uid) {
@@ -220,7 +230,7 @@
       });
     }
 
-    // Wait for user UID to appear (dashboard.js loads it after auth)
+    // Observe UID to generate QR code
     const observer = new MutationObserver(() => {
       const uid = document.getElementById("userUid").textContent.trim();
       if (uid && uid !== "—") generateQRCode(uid);
@@ -231,6 +241,8 @@
     const scanBtn = document.getElementById("scanQrBtn");
     const scanArea = document.getElementById("scanArea");
     const closeScan = document.getElementById("closeScan");
+    const receiverInput = document.getElementById("receiverUid");
+    const receiverNameDiv = document.getElementById("receiverName");
 
     scanBtn.onclick = () => {
       scanArea.style.display = "block";
@@ -239,13 +251,15 @@
         { facingMode: "environment" },
         { fps: 10, qrbox: 200 },
         (decodedText) => {
-          document.getElementById("receiverUid").value = decodedText;
+          receiverInput.value = decodedText;
           qrScanner.stop();
           scanArea.style.display = "none";
           const t = document.getElementById("toast");
           t.textContent = "UID Scanned ✅";
           t.classList.add("show");
           setTimeout(()=>t.classList.remove("show"), 2000);
+          // Fetch name after scan
+          fetchReceiverName(decodedText);
         },
         (err) => {}
       );
@@ -255,6 +269,25 @@
       if (qrScanner) qrScanner.stop();
       scanArea.style.display = "none";
     };
+
+    // Fetch receiver name in real time
+    receiverInput.addEventListener("input", () => {
+      const uid = receiverInput.value.trim();
+      fetchReceiverName(uid);
+    });
+
+    async function fetchReceiverName(uid) {
+      if (!uid) {
+        receiverNameDiv.textContent = "—";
+        return;
+      }
+      try {
+        const snap = await getDoc(doc(db, "users", uid));
+        receiverNameDiv.textContent = snap.exists() ? snap.data().fullName : "❌ Not found";
+      } catch (e) {
+        receiverNameDiv.textContent = "Error fetching name";
+      }
+    }
   </script>
 </body>
 </html>
