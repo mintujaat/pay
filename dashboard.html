@@ -1,40 +1,260 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>SecPay — Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="style.css">
+
+  <!-- QR Libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+
+  <style>
+    :root {
+      --accent: #00bfff;
+      --bg: #0f1218;
+      --card: #1a1f29;
+      --text: #f2f2f2;
+      --muted: #aaa;
+      --danger: #ff5252;
+      --success: #00e676;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Roboto, sans-serif; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 15px;
+    }
+
+    .wrap {
+      width: 100%;
+      max-width: 480px;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+    }
+
+    .card {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.35);
+    }
+
+    .top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    h1 {
+      color: var(--accent);
+      font-size: 1.5rem;
+    }
+
+    .balance {
+      font-size: 1.8rem;
+      font-weight: bold;
+      color: var(--success);
+    }
+
+    code {
+      background: rgba(255,255,255,0.1);
+      padding: 2px 5px;
+      border-radius: 5px;
+    }
+
+    button {
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: 0.2s;
+      font-weight: 600;
+    }
+    button:hover { background: #0099cc; }
+
+    input {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 10px;
+      border-radius: 10px;
+      border: none;
+      outline: none;
+      font-size: 1rem;
+      background: rgba(255,255,255,0.08);
+      color: var(--text);
+    }
+
+    #qrcode {
+      margin: 10px auto 15px;
+      display: flex;
+      justify-content: center;
+    }
+
+    #scanArea {
+      display: none;
+      margin-top: 10px;
+    }
+
+    #reader {
+      width: 100%;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    li.item {
+      display: flex;
+      flex-direction: column;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+
+    li .amt {
+      font-weight: bold;
+    }
+    li .amt.debit { color: var(--danger); }
+    li .amt.credit { color: var(--success); }
+    li .muted { color: var(--muted); font-size: 0.8rem; }
+
+    #toast {
+      position: fixed;
+      bottom: 25px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.85);
+      color: white;
+      padding: 10px 20px;
+      border-radius: 8px;
+      opacity: 0;
+      transition: opacity 0.3s;
+      z-index: 9999;
+    }
+    #toast.show { opacity: 1; }
+
+    @media (max-width: 480px) {
+      body { padding: 20px; }
+      .balance { font-size: 1.5rem; }
+    }
+  </style>
 </head>
+
 <body>
   <div class="wrap">
+    <!-- PROFILE CARD -->
     <div class="card">
-     <div class="top">
-  <div>
-    <h1>💳 SecPay</h1>
-    <p>Welcome, <b id="userName">—</b></p>
-    <p>Your UID: <code id="userUid">—</code>
-      <button id="copyUid">Copy</button>
-    </p>
-  </div>
-  <div class="balance">₹<span id="balance">0</span></div>
-</div>
+      <div class="top">
+        <div>
+          <h1>💳 SecPay</h1>
+          <p>Welcome, <b id="userName">—</b></p>
+          <p>Your UID: <code id="userUid">—</code>
+            <button id="copyUid">Copy</button>
+          </p>
+        </div>
+        <div class="balance">₹<span id="balance">0</span></div>
+      </div>
 
-      <button id="logoutBtn">Logout</button>
+      <div id="qrcode"></div>
+      <button id="logoutBtn" style="width:100%;margin-top:10px;">Logout</button>
     </div>
 
+    <!-- SEND MONEY CARD -->
     <div class="card">
       <h2>Send Money (by UID)</h2>
       <input id="receiverUid" placeholder="Receiver UID">
       <input id="amount" type="number" placeholder="Amount (₹)">
-      <button id="sendBtn">Send</button>
+      <div style="display:flex;gap:10px;">
+        <button id="sendBtn" style="flex:1;">Send</button>
+        <button id="scanQrBtn" style="flex:1;background:#2ecc71;">📷 Scan QR</button>
+      </div>
+
+      <div id="scanArea">
+        <div id="reader"></div>
+        <button id="closeScan" style="margin-top:8px;width:100%;background:#444;">Close Scanner</button>
+      </div>
     </div>
 
+    <!-- HISTORY CARD -->
     <div class="card">
-      <h2>History</h2>
-      <ul id="txnList"></ul>
+      <h2>Transaction History</h2>
+      <ul id="txnList">
+        <li class="item">Loading transactions...</li>
+      </ul>
     </div>
   </div>
 
+  <div id="toast"></div>
+
   <script type="module" src="dashboard.js"></script>
+
+  <!-- QR Integration -->
+  <script>
+    let qrGen, qrScanner;
+
+    function generateQRCode(uid) {
+      const qrDiv = document.getElementById("qrcode");
+      qrDiv.innerHTML = "";
+      if (!uid) return;
+      qrGen = new QRCode(qrDiv, {
+        text: uid,
+        width: 140,
+        height: 140,
+        colorDark: "#00bfff",
+        colorLight: "#1a1f29"
+      });
+    }
+
+    // Wait for user UID to appear (dashboard.js loads it after auth)
+    const observer = new MutationObserver(() => {
+      const uid = document.getElementById("userUid").textContent.trim();
+      if (uid && uid !== "—") generateQRCode(uid);
+    });
+    observer.observe(document.getElementById("userUid"), { childList: true });
+
+    // Scanner controls
+    const scanBtn = document.getElementById("scanQrBtn");
+    const scanArea = document.getElementById("scanArea");
+    const closeScan = document.getElementById("closeScan");
+
+    scanBtn.onclick = () => {
+      scanArea.style.display = "block";
+      qrScanner = new Html5Qrcode("reader");
+      qrScanner.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: 200 },
+        (decodedText) => {
+          document.getElementById("receiverUid").value = decodedText;
+          qrScanner.stop();
+          scanArea.style.display = "none";
+          const t = document.getElementById("toast");
+          t.textContent = "UID Scanned ✅";
+          t.classList.add("show");
+          setTimeout(()=>t.classList.remove("show"), 2000);
+        },
+        (err) => {}
+      );
+    };
+
+    closeScan.onclick = () => {
+      if (qrScanner) qrScanner.stop();
+      scanArea.style.display = "none";
+    };
+  </script>
 </body>
 </html>
