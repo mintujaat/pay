@@ -9,7 +9,8 @@ import {
   updateDoc,
   addDoc,
   collection,
-  serverTimestamp
+  serverTimestamp,
+  onSnapshot
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const userNameEl = document.getElementById("userName");
@@ -33,12 +34,16 @@ onAuthStateChanged(auth, async (user) => {
     alert("UID copied!");
   };
 
-  const snap = await getDoc(doc(db, "users", user.uid));
-  if (snap.exists()) {
-    const data = snap.data();
-    userNameEl.textContent = data.fullName || "User";
-    balanceEl.textContent = data.balance?.toFixed(2) || "0.00";
-  }
+  const userRef = doc(db, "users", user.uid);
+
+  // ✅ Real-time listener for balance & name
+  onSnapshot(userRef, (snap) => {
+    if (snap.exists()) {
+      const data = snap.data();
+      userNameEl.textContent = data.fullName || "User";
+      balanceEl.textContent = (data.balance ?? 0).toFixed(2);
+    }
+  });
 });
 
 logoutBtn.addEventListener("click", async () => {
@@ -54,7 +59,9 @@ receiverInput.addEventListener("input", async () => {
   }
   try {
     const snap = await getDoc(doc(db, "users", uid));
-    receiverNameDiv.textContent = snap.exists() ? snap.data().fullName : "❌ Not found";
+    receiverNameDiv.textContent = snap.exists()
+      ? snap.data().fullName
+      : "❌ Not found";
   } catch (err) {
     receiverNameDiv.textContent = "Error fetching name";
   }
@@ -84,8 +91,14 @@ function customConfirm(message) {
     `;
     overlay.appendChild(box);
     document.body.appendChild(overlay);
-    box.querySelector("#yesBtn").onclick = () => { document.body.removeChild(overlay); resolve(true); };
-    box.querySelector("#noBtn").onclick = () => { document.body.removeChild(overlay); resolve(false); };
+    box.querySelector("#yesBtn").onclick = () => {
+      document.body.removeChild(overlay);
+      resolve(true);
+    };
+    box.querySelector("#noBtn").onclick = () => {
+      document.body.removeChild(overlay);
+      resolve(false);
+    };
   });
 }
 
@@ -129,11 +142,9 @@ sendBtn.addEventListener("click", async () => {
     });
 
     alert("✅ Payment successful!");
-    balanceEl.textContent = (senderData.balance - amount).toFixed(2);
     amountInput.value = "";
     receiverInput.value = "";
     receiverNameDiv.textContent = "—";
-
   } catch (err) {
     alert("❌ Payment failed: " + err.message);
   } finally {
