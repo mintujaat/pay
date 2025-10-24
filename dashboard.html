@@ -12,13 +12,13 @@
 
   <style>
     :root {
-      --accent: #00bfff;
-      --bg: #0f1218;
-      --card: #1a1f29;
-      --text: #f2f2f2;
-      --muted: #aaa;
-      --danger: #ff5252;
-      --success: #00e676;
+      --accent: #007bff;
+      --bg: #f4f6fa;
+      --card: #ffffff;
+      --text: #222;
+      --muted: #666;
+      --danger: #e74c3c;
+      --success: #28a745;
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Roboto, sans-serif; }
@@ -45,7 +45,8 @@
       background: var(--card);
       border-radius: 16px;
       padding: 20px;
-      box-shadow: 0 0 20px rgba(0,0,0,0.35);
+      box-shadow: 0 0 12px rgba(0,0,0,0.1);
+      border: 1px solid rgba(0,0,0,0.05);
     }
 
     .top {
@@ -67,8 +68,8 @@
     }
 
     code {
-      background: rgba(255,255,255,0.1);
-      padding: 2px 5px;
+      background: rgba(0,0,0,0.05);
+      padding: 2px 6px;
       border-radius: 5px;
     }
 
@@ -84,22 +85,24 @@
       position: relative;
       overflow: hidden;
     }
-    button:hover { background: #0099cc; }
+    button:hover { background: #0064d4; }
 
     input {
       width: 100%;
       padding: 10px;
       margin-bottom: 5px;
       border-radius: 10px;
-      border: none;
+      border: 1px solid #ccc;
       outline: none;
       font-size: 1rem;
-      background: rgba(255,255,255,0.08);
+      background: #fff;
       color: var(--text);
     }
 
+    input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0,123,255,0.1); }
+
     #receiverName {
-      color: #00bfff;
+      color: var(--accent);
       font-size: 0.9rem;
       margin-bottom: 8px;
     }
@@ -119,6 +122,7 @@
       width: 100%;
       border-radius: 10px;
       overflow: hidden;
+      border: 1px solid #ccc;
     }
 
     ul {
@@ -131,7 +135,7 @@
       display: flex;
       flex-direction: column;
       padding: 10px 0;
-      border-bottom: 1px solid rgba(255,255,255,0.1);
+      border-bottom: 1px solid rgba(0,0,0,0.1);
     }
 
     li .amt {
@@ -211,12 +215,12 @@
       <input id="amount" type="number" placeholder="Amount (₹)">
       <div style="display:flex;gap:10px;">
         <button id="sendBtn" style="flex:1;">Send</button>
-        <button id="scanQrBtn" style="flex:1;background:#2ecc71;">📷 Scan QR</button>
+        <button id="scanQrBtn" style="flex:1;background:#28a745;">📷 Scan QR</button>
       </div>
 
       <div id="scanArea">
         <div id="reader"></div>
-        <button id="closeScan" style="margin-top:8px;width:100%;background:#444;">Close Scanner</button>
+        <button id="closeScan" style="margin-top:8px;width:100%;background:#ccc;color:#000;">Close Scanner</button>
       </div>
     </div>
 
@@ -251,8 +255,8 @@
         text: uid,
         width: 140,
         height: 140,
-        colorDark: "#00bfff",
-        colorLight: "#1a1f29"
+        colorDark: "#007bff",
+        colorLight: "#ffffff"
       });
     }
 
@@ -316,8 +320,7 @@
     sendBtn.addEventListener("click", async () => {
       sendBtn.classList.add("loading");
       try {
-        // simulate payment processing delay
-        await new Promise(r => setTimeout(r, 2000));
+        await new Promise(r => setTimeout(r, 2000)); // simulate delay
       } catch (e) {}
       sendBtn.classList.remove("loading");
     });
