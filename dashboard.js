@@ -1,169 +1,142 @@
-// dashboard.js
 import { auth, db } from "./firebase.js";
 import {
-  onAuthStateChanged, signOut
+  onAuthStateChanged,
+  signOut
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
-  doc, getDoc, onSnapshot, runTransaction, collection, query, where,
-  onSnapshot as listen, orderBy, serverTimestamp, doc as docRef
+  doc,
+  getDoc,
+  updateDoc,
+  addDoc,
+  collection,
+  serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-let meUid = null;
-let meRef = null;
+const userNameEl = document.getElementById("userName");
+const userUidEl = document.getElementById("userUid");
+const balanceEl = document.getElementById("balance");
+const logoutBtn = document.getElementById("logoutBtn");
+const sendBtn = document.getElementById("sendBtn");
+const receiverInput = document.getElementById("receiverUid");
+const amountInput = document.getElementById("amount");
+const receiverNameDiv = document.getElementById("receiverName");
 
-// Toast helper
-function toast(msg) {
-  const t = document.getElementById("toast");
-  t.textContent = msg;
-  t.classList.add("show");
-  setTimeout(()=>t.classList.remove("show"), 2000);
-}
-
-// Auth & profile
 onAuthStateChanged(auth, async (user) => {
-  if (!user) { window.location.href = "index.html"; return; }
+  if (!user) {
+    window.location.href = "login.html";
+    return;
+  }
 
-  meUid = user.uid;
-  meRef = doc(db, "users", meUid);
-
-  // Realtime profile (name + balance)
-  onSnapshot(meRef, (snap) => {
-    if (!snap.exists()) return;
-    const u = snap.data();
-    document.getElementById("userName").textContent = u.fullName ?? "User";
-    document.getElementById("balance").textContent = (u.balance ?? 0);
-    document.getElementById("userUid").textContent = meUid;
-  });
-
-  // Copy UID
+  userUidEl.textContent = user.uid;
   document.getElementById("copyUid").onclick = () => {
-    navigator.clipboard.writeText(meUid);
-    toast("UID copied ✅");
+    navigator.clipboard.writeText(user.uid);
+    alert("UID copied!");
   };
 
-  // Start history listeners
-  startHistoryListeners();
+  const snap = await getDoc(doc(db, "users", user.uid));
+  if (snap.exists()) {
+    const data = snap.data();
+    userNameEl.textContent = data.fullName || "User";
+    balanceEl.textContent = data.balance?.toFixed(2) || "0.00";
+  }
 });
 
-// Logout
-document.getElementById("logoutBtn").addEventListener("click", async () => {
+logoutBtn.addEventListener("click", async () => {
   await signOut(auth);
-  window.location.href = "index.html";
+  window.location.href = "login.html";
 });
 
-// Send money (by UID) — atomic client transaction
-document.getElementById("sendBtn").addEventListener("click", async () => {
-  const receiverUid = document.getElementById("receiverUid").value.trim();
-  const amount = parseFloat(document.getElementById("amount").value);
-
-  if (!receiverUid || !amount || amount <= 0) return toast("Enter valid UID & amount");
-  if (receiverUid === meUid) return toast("You cannot send to yourself");
-
-  const rxRef = doc(db, "users", receiverUid);
-  const rxSnap = await getDoc(rxRef);
-  if (!rxSnap.exists()) return toast("Receiver not found");
-
+receiverInput.addEventListener("input", async () => {
+  const uid = receiverInput.value.trim();
+  if (!uid) {
+    receiverNameDiv.textContent = "—";
+    return;
+  }
   try {
-    await runTransaction(db, async (tx) => {
-      const meDoc = await tx.get(meRef);
-      const rxDoc = await tx.get(rxRef);
-
-      if (!meDoc.exists() || !rxDoc.exists()) throw new Error("User docs missing");
-
-      const meBal = Number(meDoc.data().balance || 0);
-      const rxBal = Number(rxDoc.data().balance || 0);
-      if (meBal < amount) throw new Error("Insufficient balance");
-
-      // Update balances
-      tx.update(meRef, { balance: meBal - amount });
-      tx.update(rxRef, { balance: rxBal + amount });
-
-      // Write transaction record inside the same transaction
-      const txnRef = docRef(collection(db, "transactions"));
-      tx.set(txnRef, {
-        senderId: meUid,
-        senderName: meDoc.data().fullName,
-        receiverId: receiverUid,
-        receiverName: rxDoc.data().fullName,
-        amount: Number(amount),
-        createdAt: serverTimestamp()
-      });
-    });
-
-    // Clear fields & show success toast
-    (document.getElementById("receiverUid").value = "");
-    (document.getElementById("amount").value = "");
-    toast("Payment successful ✅");
-
-  } catch (e) {
-    toast(e.message || "Payment failed");
+    const snap = await getDoc(doc(db, "users", uid));
+    receiverNameDiv.textContent = snap.exists() ? snap.data().fullName : "❌ Not found";
+  } catch (err) {
+    receiverNameDiv.textContent = "Error fetching name";
   }
 });
 
-// -------- Realtime history (sent + received) --------
-let sentUnsub = null, recvUnsub = null;
-function startHistoryListeners() {
-  const list = document.getElementById("txnList");
-  const items = new Map(); // key=docId, value=data
-
-  function render() {
-    // Convert to array and sort desc by createdAt
-    const arr = Array.from(items.values()).sort((a,b) => {
-      const ta = a.createdAt?.toMillis?.() ?? 0;
-      const tb = b.createdAt?.toMillis?.() ?? 0;
-      return tb - ta;
-    });
-
-    list.innerHTML = "";
-    if (!arr.length) {
-      const li = document.createElement("li");
-      li.className = "item";
-      li.textContent = "No transactions yet.";
-      list.appendChild(li);
-      return;
-    }
-
-    for (const t of arr) {
-      const li = document.createElement("li");
-      li.className = "item";
-      const when = t.createdAt?.toDate ? t.createdAt.toDate().toLocaleString() : "";
-      const isSent = t.senderId === meUid;
-      li.innerHTML = isSent
-        ? `<span class="amt debit">− ₹${t.amount}</span>
-           <span>To <b>${t.receiverName}</b> (UID: ${t.receiverId})</span>
-           <span class="muted">${when}</span>`
-        : `<span class="amt credit">+ ₹${t.amount}</span>
-           <span>From <b>${t.senderName}</b> (UID: ${t.senderId})</span>
-           <span class="muted">${when}</span>`;
-      list.appendChild(li);
-    }
-  }
-
-  // Listen for sent
-  const qSent = query(
-    collection(db, "transactions"),
-    where("senderId", "==", meUid),
-    orderBy("createdAt", "desc")
-  );
-  sentUnsub = listen(qSent, (snap) => {
-    snap.docChanges().forEach(ch => {
-      if (ch.type === "removed") items.delete(ch.doc.id);
-      else items.set(ch.doc.id, ch.doc.data());
-    });
-    render();
-  });
-
-  // Listen for received
-  const qRecv = query(
-    collection(db, "transactions"),
-    where("receiverId", "==", meUid),
-    orderBy("createdAt", "desc")
-  );
-  recvUnsub = listen(qRecv, (snap) => {
-    snap.docChanges().forEach(ch => {
-      if (ch.type === "removed") items.delete(ch.doc.id);
-      else items.set(ch.doc.id, ch.doc.data());
-    });
-    render();
+// Custom Confirm Popup
+function customConfirm(message) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.style.cssText = `
+      position:fixed;top:0;left:0;width:100%;height:100%;
+      background:rgba(0,0,0,0.4);display:flex;
+      justify-content:center;align-items:center;z-index:9999;
+    `;
+    const box = document.createElement("div");
+    box.style.cssText = `
+      background:#fff;border-radius:12px;padding:20px 25px;text-align:center;
+      width:280px;box-shadow:0 2px 10px rgba(0,0,0,0.2);
+    `;
+    box.innerHTML = `
+      <h3 style="margin-bottom:10px;color:#222;">Confirm Payment</h3>
+      <p style="margin-bottom:20px;color:#444;">${message}</p>
+      <div style="display:flex;gap:10px;justify-content:center;">
+        <button id="yesBtn" style="padding:8px 16px;border:none;border-radius:6px;background:#007bff;color:#fff;cursor:pointer;">Yes</button>
+        <button id="noBtn" style="padding:8px 16px;border:none;border-radius:6px;background:#ccc;color:#000;cursor:pointer;">No</button>
+      </div>
+    `;
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+    box.querySelector("#yesBtn").onclick = () => { document.body.removeChild(overlay); resolve(true); };
+    box.querySelector("#noBtn").onclick = () => { document.body.removeChild(overlay); resolve(false); };
   });
 }
+
+sendBtn.addEventListener("click", async () => {
+  const receiverUid = receiverInput.value.trim();
+  const amount = parseFloat(amountInput.value.trim());
+  if (!receiverUid || isNaN(amount) || amount <= 0) {
+    alert("⚠️ Enter valid receiver UID and amount");
+    return;
+  }
+
+  const confirm = await customConfirm(`Are you sure you want to send ₹${amount}?`);
+  if (!confirm) return;
+
+  sendBtn.classList.add("loading");
+  try {
+    const sender = auth.currentUser;
+    if (!sender) throw new Error("Not logged in");
+
+    const senderRef = doc(db, "users", sender.uid);
+    const receiverRef = doc(db, "users", receiverUid);
+
+    const senderSnap = await getDoc(senderRef);
+    const receiverSnap = await getDoc(receiverRef);
+
+    if (!receiverSnap.exists()) throw new Error("Receiver not found");
+
+    const senderData = senderSnap.data();
+    const receiverData = receiverSnap.data();
+
+    if (senderData.balance < amount) throw new Error("Insufficient balance");
+
+    await updateDoc(senderRef, { balance: senderData.balance - amount });
+    await updateDoc(receiverRef, { balance: (receiverData.balance || 0) + amount });
+
+    await addDoc(collection(db, "transactions"), {
+      from: sender.uid,
+      to: receiverUid,
+      amount,
+      timestamp: serverTimestamp(),
+    });
+
+    alert("✅ Payment successful!");
+    balanceEl.textContent = (senderData.balance - amount).toFixed(2);
+    amountInput.value = "";
+    receiverInput.value = "";
+    receiverNameDiv.textContent = "—";
+
+  } catch (err) {
+    alert("❌ Payment failed: " + err.message);
+  } finally {
+    sendBtn.classList.remove("loading");
+  }
+});
